@@ -1,0 +1,16 @@
+# Generated artifacts
+**/out/
+**/logs/
+**/__pycache__/
+*.pyc
+*.pyo
+*.pyd
+
+# Local environments
+.venv/
+.venv_*/
+.pydeps/
+
+# Large bundles/models
+*.litertlm
+*.tflite

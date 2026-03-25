@@ -4,6 +4,7 @@
 from __future__ import annotations
 
 import argparse
+import inspect
 import os
 import sys
 from pathlib import Path
@@ -97,9 +98,11 @@ def _assert_litert_torch_importable() -> None:
 def _patch_gemma3_vision_aliases() -> None:
   """Bridge attribute layout differences for Gemma3 vision export.
 
-  Some transformers versions expose vision modules at `model.model.*` while
-  litert_torch's Gemma3 exportables currently expect top-level attributes on
-  `Gemma3ForConditionalGeneration`.
+  This is a critical step because some Hugging Face Transformers versions 
+  nest vision modules under `model.model.*`, whereas the `litert_torch` 
+  export logic expects them at the top level of the `Gemma3ForConditionalGeneration` 
+  class. This monkey-patch ensures the vision tower and projector are discoverable
+  during the graph-tracing phase.
   """
   try:
     from transformers.models.gemma3 import (  # pylint: disable=import-error
@@ -114,6 +117,7 @@ def _patch_gemma3_vision_aliases() -> None:
   if model_cls is None:
     return
 
+  # Map nested vision attributes to the top level via properties
   if not hasattr(model_cls, "vision_tower"):
     model_cls.vision_tower = property(  # type: ignore[attr-defined]
         lambda self: self.model.vision_tower
@@ -148,53 +152,64 @@ def parse_args() -> argparse.Namespace:
       "--prefill_lengths",
       type=_parse_prefill_lengths,
       default=[128, 256, 512],
-      help="Comma-separated prefill lengths, e.g. 128,256,512",
+      help="Comma-separated prefill lengths. These define the bucket sizes for initial prompt processing.",
   )
-  parser.add_argument("--cache_length", type=int, default=4096)
+  parser.add_argument(
+      "--cache_length", 
+      type=int, 
+      default=4096,
+      help="The maximum sequence length supported by the KV-cache.",
+  )
   parser.add_argument(
       "--quantization_recipe",
       default="dynamic_wi8_afp32",
-      help="LiteRT text quantization recipe.",
+      help="Quantization strategy for the text LLM (e.g., 8-bit integer weights).",
   )
   parser.add_argument(
       "--vision_quantization_recipe",
       default="weight_only_wi8_afp32",
-      help="LiteRT vision quantization recipe.",
+      help="Quantization strategy for the vision encoder component.",
   )
   parser.add_argument(
       "--enable_dynamic_shape",
       action="store_true",
-      help="Enable dynamic prefill/cache shapes in exported model.",
+      help="If true, generates TFLite signatures that support variable input lengths.",
   )
   parser.add_argument(
       "--trust_remote_code",
       action="store_true",
-      help="Pass trust_remote_code=True while loading the HF model.",
+      help="Required for certain HF models that execute custom modeling code.",
   )
   parser.add_argument(
       "--experimental_lightweight_conversion",
       action="store_true",
-      help="Enable lightweight conversion path if supported.",
+      help="Enables a faster conversion path that may bypass intensive graph optimizations.",
   )
   parser.add_argument(
       "--skip_model_info_check",
       action="store_true",
-      help="Skip HF model metadata check before export.",
+      help="Skip fetching model metadata from HF Hub before conversion.",
   )
   parser.add_argument(
       "--dry_run",
       action="store_true",
-      help="Print resolved config and exit without conversion.",
+      help="Validate parameters and print config without executing the export.",
   )
   return parser.parse_args()
 
 
 def main() -> int:
   args = parse_args()
+  # 1. Handle runtime environment compatibility
   _ensure_typing_self_compat()
+  
+  # 2. Patch vision module paths for Gemma 3 architecture
   _patch_gemma3_vision_aliases()
+  
+  # 3. Ensure the core export library is available
   _assert_litert_torch_importable()
 
+  # 4. Authenticate with Hugging Face (MedGemma is typically gated)
   token = _get_hf_token(args.hf_token, args.hf_token_env)
   if token:
     _maybe_hf_login(token)
@@ -204,12 +219,15 @@ def main() -> int:
         " fail unless you provide one."
     )
 
+  # 5. Fetch and print model info to verify visibility/accessibility
   if not args.skip_model_info_check:
     _print_model_metadata(args.model, token)
 
   output_dir = Path(args.output_dir).resolve()
   output_dir.mkdir(parents=True, exist_ok=True)
 
+  # 6. Define the full export configuration
+  # The 'image_text_to_text' task is essential for MedGemma's multimodal nature.
   config_preview = {
       "model": args.model,
       "output_dir": str(output_dir),
@@ -220,7 +238,7 @@ def main() -> int:
       "vision_encoder_quantization_recipe": args.vision_quantization_recipe,
       "enable_dynamic_shape": args.enable_dynamic_shape,
       "trust_remote_code": args.trust_remote_code,
-      "bundle_litert_lm": True,
+      "bundle_litert_lm": True, # Creates the final .litertlm container
       "export_vision_encoder": True,
       "experimental_lightweight_conversion": (
           args.experimental_lightweight_conversion
@@ -233,32 +251,59 @@ def main() -> int:
   if args.dry_run:
     return 0
 
+  # 7. Dynamically invoke the HF export library
+  # We use signature inspection to maintain compatibility with different 
+  # nightly builds of litert_torch.
   from litert_torch.generative.export_hf import export as export_lib
 
-  export_lib.export(
-      model=args.model,
-      output_dir=str(output_dir),
-      task="image_text_to_text",
-      trust_remote_code=args.trust_remote_code,
-      prefill_lengths=args.prefill_lengths,
-      cache_length=args.cache_length,
-      quantization_recipe=args.quantization_recipe,
-      enable_dynamic_shape=args.enable_dynamic_shape,
-      bundle_litert_lm=True,
-      export_vision_encoder=True,
-      vision_encoder_quantization_recipe=args.vision_quantization_recipe,
-      experimental_lightweight_conversion=(
-          args.experimental_lightweight_conversion
-      ),
-  )
+  sig = inspect.signature(export_lib.export)
+  params = sig.parameters
 
+  export_kwargs = {
+      "model": args.model,
+      "output_dir": str(output_dir),
+      "trust_remote_code": args.trust_remote_code,
+      "prefill_lengths": args.prefill_lengths,
+      "cache_length": args.cache_length,
+      "quantization_recipe": args.quantization_recipe,
+      "enable_dynamic_shape": args.enable_dynamic_shape,
+  }
+
+  # Map internal config to library-specific argument names
+  if "task" in params:
+    export_kwargs["task"] = "image_text_to_text"
+  if "bundle_litert_lm" in params:
+    export_kwargs["bundle_litert_lm"] = True
+  if "export_vision_encoder" in params:
+    export_kwargs["export_vision_encoder"] = True
+  if "vision_encoder_quantization_recipe" in params:
+    export_kwargs["vision_encoder_quantization_recipe"] = args.vision_quantization_recipe
+  if "experimental_lightweight_conversion" in params:
+    export_kwargs["experimental_lightweight_conversion"] = args.experimental_lightweight_conversion
+
+  # Prune arguments that are not supported by the current library version
+  final_kwargs = {k: v for k, v in export_kwargs.items() if k in params}
+  
+  missing_params = [k for k in export_kwargs if k not in params]
+  if missing_params:
+    print(f"WARNING: The following arguments are NOT supported by your version of litert_torch and will be IGNORED: {missing_params}")
+    if "task" in missing_params or "export_vision_encoder" in missing_params:
+        print("CRITICAL WARNING: Multimodal support (vision) seems to be missing in this version of litert_torch. Conversion will likely only handle text.")
+
+  # 8. Execute the conversion (This triggers graph tracing, optimization, and quantization)
+  export_lib.export(**final_kwargs)
+
+  # 9. Verify the resulting artifacts
   litert_lm_path = output_dir / "model.litertlm"
   if litert_lm_path.exists():
     print(f"SUCCESS: {litert_lm_path}")
   else:
-    print(
-        "WARNING: Export finished but model.litertlm was not found in output."
-    )
+    # Some older versions might output raw .tflite files instead of a bundle
+    tflite_files = list(output_dir.glob("*.tflite"))
+    if tflite_files:
+        print(f"SUCCESS: Exported TFLite files: {[f.name for f in tflite_files]}")
+    else:
+        print("WARNING: Export finished but no model artifacts were found in output directory.")
   return 0
 
 

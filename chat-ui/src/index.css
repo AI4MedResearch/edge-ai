@@ -1,0 +1,12 @@
+@import "tailwindcss";
+@plugin "@tailwindcss/typography";
+
+@theme {
+  --color-primary: #863bff;
+  --color-primary-hover: #7e14ff;
+}
+
+body {
+  margin: 0;
+  background-color: #f9fafb;
+}

@@ -1,170 +1,107 @@
-# On-Device Medical Intelligence: Converting MedGemma 1.5 4B to LiteRT
+# On-Device Medical Intelligence: Converging MedGemma 1.5 4B and LiteRT
 
-Medical AI is rapidly shifting from massive cloud-based models to specialized, on-device intelligence. **MedGemma 1.5 4B**, a domain-tuned version of Google's Gemma model, represents a significant leap for medical-specific text and image understanding.
+In the rapidly evolving landscape of healthcare AI, the transition from massive, cloud-dependent models to specialized, on-device intelligence is not just a trend—it's a clinical necessity. Medical data is inherently sensitive, and the requirements for privacy (HIPAA compliance), zero-latency reasoning, and offline accessibility in remote or high-security environments are paramount.
 
-In this guide, we’ll walk through how to convert the **MedGemma 1.5 4B Multimodal** model into the **LiteRT** (`.litertlm`) format, enabling high-performance, private, and efficient medical AI on edge devices.
+Here we are diving into how to bring state-of-the-art medical multimodal intelligence directly to the edge. By converting **MedGemma 1.5 4B** to the specialized **LiteRT** (`.litertlm`) format, we unlock the ability to perform complex clinical analysis—including MRI interpretation and EHR questioning—entirely within a local web browser using WebGPU.
 
----
+## 1. The Rise of On-Device Medical Intelligence
 
-## Deep Dive: MedGemma 1.5 4B
+Traditional medical AI often relies on sending high-resolution scans and patient records to powerful GPU clusters in the cloud. While effective, this approach introduces significant bottlenecks:
+*   **Privacy Risks**: Every byte of data leaving the hospital network is a potential point of failure.
+*   **Latency**: In critical care, waiting for a round-trip to a data center can be the difference between a prompt diagnosis and a delayed one.
+*   **Connectivity**: Many clinical environments (ORs, remote clinics, or mobile health units) suffer from inconsistent internet access.
 
-Released as a major update to the MedGemma family, the **1.5 4B** model is built on the cutting-edge **Gemma 3** architecture. While previous iterations established a strong baseline for medical text processing, the 1.5 4B version is a specialized multimodal engine designed for the complexities of modern clinical data.
+On-device intelligence solves these by performing inference where the data is born. With the release of Google's **Gemma 3** architecture and its medical sibling **MedGemma 1.5**, the "edge" is now powerful enough to handle 4-billion parameter multimodal models.
 
-### What makes 1.5 4B different?
+## 2. MedGemma 1.5 4B: A Multimodal Leap
 
-The leap from MedGemma 1 to 1.5 is primarily defined by its shift from 2D-centric vision to **high-dimensional and longitudinal reasoning**.
+**MedGemma 1.5 4B** represents a significant architectural shift over its predecessors. While MedGemma 1.0 was a pioneer in clinical text understanding, the 1.5 iteration—built on the **Gemma 3** foundation—is a true multimodal powerhouse.
 
-*   **3D Medical Imaging**: Unlike its predecessors which were largely limited to 2D representations (X-rays, dermoscopy), MedGemma 1.5 can natively interpret 3D volumes from **CT and MRI scans**.
-*   **Longitudinal Analysis**: One of the most critical clinical tasks is comparing "prior vs. current" scans. MedGemma 1.5 is optimized for time-series reviews, allowing it to track disease progression or treatment response over multiple historical records.
-*   **Whole-Slide Histopathology (WSI)**: It can process high-resolution pathology slides by analyzing multiple patches simultaneously, a feat that previously required separate, disconnected pipelines.
-*   **Precision Localization**: The model has seen a massive jump in anatomical localization (identifying exactly *where* a nodule is). Benchmarks show an improvement from ~3% IoU in version 1 to **~38% IoU** in version 1.5.
-
-### Performance Comparison
+### Key Advancements:
+*   **From 2D to 3D**: Previous models focused on 2D images like X-rays or dermoscopy. MedGemma 1.5 natively interprets **3D medical volumes** from CT and MRI scans.
+*   **Longitudinal Reasoning**: One of the model's strongest features is its ability to track disease progression by comparing historical scans against current ones.
+*   **Clinical Accuracy**: EHR Question Answering accuracy has jumped from ~68% in version 1 to a staggering **~90%** in version 1.5.
+*   **Anatomy Localization**: Precise identification of anatomical structures and abnormalities saw an improvement from ~3% IoU to **~38% IoU**.
 
 | Capability | MedGemma 1 (4B) | MedGemma 1.5 (4B) |
 | :--- | :--- | :--- |
 | **Base Architecture** | Gemma 2 | **Gemma 3** |
-| **Imaging Support** | 2D Focus (X-ray) | **3D (CT/MRI) & WSI** |
-| **Temporal Reasoning** | Limited / Single-scan | **Longitudinal Tracking** |
-| **EHR Question Answering**| ~68% Accuracy | **~90% Accuracy** |
-| **Anatomy Localization** | ~3% IoU | **~38% IoU** |
+| **Imaging Support** | 2D Focus (X-rays) | **3D (CT/MRI) & WSIs** |
+| **Temporal Reasoning** | Single-scan | **Longitudinal Tracking** |
+| **EHR QA Accuracy** | ~68% | **~90%** |
 
-By bringing this level of intelligence to the edge via LiteRT, we are enabling tools that can assist radiologists and clinicians in real-time, even in bandwidth-constrained or privacy-sensitive environments.
+## 3. Deep Dive into the .litertlm Format
 
----
+To run MedGemma efficiently on the edge, we leverage the **.litertlm** format. This isn't just another file extension; it is LiteRT’s (formerly TensorFlow Lite) specialized bundle for Generative AI.
 
-## Why MedGemma on LiteRT?
+### Why .litertlm for MedGemma?
+1.  **Stateful Optimization**: Unlike standard `.tflite` graphs, a `.litertlm` bundle is designed for the iterative nature of LLMs. It contains separate, optimized graphs for **Prefill** (processing the prompt) and **Decode** (generating tokens one-by-one), while natively managing the **KV-cache**.
+2.  **Multimodal Synergy**: MedGemma requires a vision encoder and a language head to work in tandem. `.litertlm` bundles these disparate components into a single, self-describing artifact, ensuring the vision-language projection layers are always synchronized.
+3.  **Hardware Native**: The format is built to leverage the **LiteRT GenAI API**, which provides highly optimized kernels for mobile GPUs and NPUs, significantly outperforming generic graph execution.
 
-**MedGemma 1.5 4B** is designed for clinical reasoning, answering medical questions, and processing multimodal inputs (like medical imaging). By converting it to **LiteRT** (formerly TensorFlow Lite), we unlock:
+## 4. The Conversion Workflow
 
-1.  **Low Latency**: Faster response times for critical clinical workflows.
-2.  **Privacy & Security**: Sensitive medical data stays on the device.
-3.  **Reduced Cost**: No need for expensive cloud GPU infrastructure for inference.
-4.  **Accessibility**: Runs on mobile devices, medical tablets, and edge servers.
+The transformation from raw PyTorch weights to a production-ready LiteRT bundle is an intricate process handled via the [`litert_torch`](https://github.com/google-ai-edge/litert-torch) export pipeline. It starts with the original [MedGemma 1.5 4B IT](https://huggingface.co/google/medgemma-1.5-4b-it) weights from Google and re-architects them for high-performance edge execution.
 
----
+### The Logic Behind the Conversion
 
-## Understanding the .litertlm Format
+Instead of a simple "file format save," the conversion logic performs several critical architectural bridges and optimizations:
 
-As we move towards standardized on-device GenAI, the **.litertlm** format emerges as LiteRT’s specialized bundle for Large Language Models. But how does it compare to other common edge formats like GGUF or ONNX?
-
-### What is a .litertlm bundle?
-Unlike a standard `.tflite` file which typically represents a single computational graph, a `.litertlm` file is a **container**. It bundles together:
-*   **Prefill & Decode Graphs**: Optimized paths for processing initial prompts vs. generating tokens one-by-one.
-*   **Embedders**: The logic for turning text into numerical vectors.
-*   **Multimodal Components**: Vision encoders (like those needed for MedGemma) and adapters.
-*   **Metadata**: Tokenizer configurations and model hyperparameters.
-
-### Comparison at a Glance
-
-| Feature | .litertlm (LiteRT) | GGUF (llama.cpp) | .task (MediaPipe) | .bin / .tflite (Raw) |
-| :--- | :--- | :--- | :--- | :--- |
-| **Primary Target** | Mobile & Edge GenAI | Desktop & Server LLM | High-level Task API | Generic Inference |
-| **Packaging** | Multi-graph Bundle | Single-file Quantized | Task-specific Bundle | Raw Graph/Weights |
-| **Metadata** | Built-in (Tokenizer/KV) | Built-in | Built-in | Manual / External |
-| **Multimodal** | Native Support | Complex / External | Limited to Task | Manual Wiring |
-
-### Why .litertlm is Favorable for GenAI
-
-If we look at the history of Google's edge AI, we might encounter **.task** files (used by MediaPipe) or generic **.bin** files for raw weights. Here is why **.litertlm** is the superior choice for models like MedGemma:
-
-1.  **GenAI Optimization**: Unlike `.task` files, which were designed for static tasks like object detection, `.litertlm` is architected for the stateful, iterative nature of LLMs. It natively understands KV-caching and differentiates between "prefill" (processing the prompt) and "decode" (generating tokens) phases.
-2.  **Unified Multimodal Logic**: For MedGemma, we aren't just running a text model; we're running a vision encoder and an LLM together. `.litertlm` bundles these separate graphs into one artifact, ensuring the vision adapter and the language head are always in sync.
-3.  **Self-Describing**: Generic `.bin` or raw `.tflite` files require us to manually manage tokenizers and input/output shapes. `.litertlm` includes the tokenizer configuration and model hyperparameters, making it a "plug-and-play" artifact for the LiteRT SDK.
-4.  **Hardware Acceleration**: It is optimized to leverage the **LiteRT GenAI API**, which provides specialized kernels for mobile GPUs and NPUs, significantly outperforming generic graph execution.
-
----
-
-## 1. Prerequisites
-
-Before starting, ensure we have:
-
-*   **Model Access**: Accept the terms of use for `google/medgemma-1.5-4b-it` on Hugging Face.
-*   **HF Token**: Create a Hugging Face read access token.
-*   **Hardware**: A machine with sufficient RAM/VRAM (16GB+ recommended) for the export process.
-
----
-
-## 2. Setting Up the Environment
-
-We use a custom wrapper that leverages the latest `litert_torch` export pipeline.
+1.  **Structural Alignment (Architecture Bridging)**: MedGemma 1.5 is built on the Gemma 3 architecture. In some versions of the Hugging Face `transformers` library, the vision modules (tower and projector) are nested deeply within the model structure. Our workflow includes a **structural patch** that maps these nested components to the top level of the model class. This ensures the export engine can accurately "see" and trace the multimodal connection points during the graph-generation phase.
+2.  **Multimodal Graph Tracing**: The conversion initiates a `image_text_to_text` export task. This process traces the mathematical flow of data through both the vision encoder and the language head. It effectively captures how an MRI image is transformed into tokens and how those tokens are processed by the LLM to generate a clinical description.
+3.  **Prefill Bucketing**: To optimize the "time-to-first-token" on edge devices, the workflow generates specialized graphs for different **prefill lengths** (e.g., 128, 256, 512 tokens). This allows the runtime to use the most efficient computation path based on the size of the user's initial prompt or image metadata.
+4.  **Specialized Dual-Quantization**: To compress the 4B parameter model to a browser-friendly ~3GB, we apply distinct quantization strategies to different components:
+    *   **LLM Core**: Uses a `dynamic_wi8_afp32` recipe (8-bit weights with 32-bit activations), balancing reasoning depth with memory footprint.
+    *   **Vision Encoder**: Uses a `weight_only_wi8_afp32` recipe, ensuring that the high-dimensional features required for medical imaging are preserved while still reducing the storage overhead.
+5.  **KV-Cache Architecture**: The workflow configures a fixed-length **Key-Value (KV) cache** (typically 4096 tokens). This is embedded into the LiteRT graph, enabling the model to "remember" the context of a long medical conversation without re-processing the entire history for every new word generated.
+6.  **Unified Bundling**: The final step packages the optimized graphs, the token embedder, the tokenizer configuration, and essential model metadata into a single, self-describing **.litertlm** container. This eliminates the need for external configuration files and ensures the model is "plug-and-play" for the edge runtime.
 
 ```bash
-cd medgemma_litert
-chmod +x setup_env.sh
-./setup_env.sh
-source .venv/bin/activate
-```
-
-This script sets up a virtual environment and installs the necessary dependencies, including the `litert-torch-nightly` build, which contains the essential `image_text_to_text` export task.
-
----
-
-## 3. The Conversion Workflow
-
-The conversion is handled by `convert_medgemma15_4b_to_litert.py`. This script performs a sophisticated multimodal export, bundling:
-
-*   Text prefill and decode TFLite graphs.
-*   The vision encoder TFLite graph.
-*   Vision adapter layers.
-*   Tokenizer and necessary metadata.
-
-### Step 3a: Configure Authentication
-
-```bash
-export HF_TOKEN='your_huggingface_token_here'
-```
-
-### Step 3b: Run a Dry Run (Optional)
-
-Verify our configuration before starting the compute-intensive export.
-
-```bash
-python convert_medgemma15_4b_to_litert.py --dry_run
-```
-
-### Step 3c: Start the Conversion
-
-Execute the conversion with optimization flags for quantization and performance.
-
-```bash
+# Example execution of the conversion logic
 python convert_medgemma15_4b_to_litert.py \
   --output_dir out/medgemma-1.5-4b-it-litertlm \
   --prefill_lengths 128,256,512 \
   --cache_length 4096 \
-  --quantization_recipe dynamic_wi8_afp32 \
-  --vision_quantization_recipe weight_only_wi8_afp32
+  --quantization_recipe dynamic_wi8_afp32
 ```
 
-### Key Parameters Explained:
+## 5. Model Deployment on Edge Web Browsers
 
-*   **`--prefill_lengths`**: Generates optimized graphs for these specific input sizes, improving initial latency.
-*   **`--cache_length`**: Sets the maximum sequence length (context window) for the model.
-*   **`--quantization_recipe`**: Uses `dynamic_wi8_afp32` (8-bit weights, 32-bit floating point activations) for the LLM core to balance size and accuracy.
-*   **`--vision_quantization_recipe`**: Specifically optimizes the vision encoder weights.
+Deploying a 4-billion parameter multimodal model like MedGemma in a browser tab is a feat of modern web engineering. It transforms the browser from a simple document viewer into a secure, hardware-accelerated sandbox for private clinical intelligence. Our implementation in `@chat-ui` optimizes this deployment through a multi-layered architectural approach.
+
+### Hardware-First Verification
+The deployment begins with an environmental handshake. Before attempting to load any model, the application verifies the presence of the **WebGPU API** (`navigator.gpu`). This is the application's "gatekeeper"—without native GPU access, the computational overhead of a 4B parameter model would be too high for a standard browser thread.
+
+### Dynamic Runtime Resolution (WASM)
+Once hardware is confirmed, the application initializes the **LiteRT GenAI runtime**. Instead of shipping massive binary loaders with the app, we utilize the `FilesetResolver` to pull specialized WebAssembly (WASM) runtimes (like `genai_wasm_internal.js`) from a high-performance CDN. This ensures the edge engine is always running the latest version compatible with the MedGemma 1.5 bundle format.
+
+### The Two-Stage Fallback Strategy
+To maximize clinical accessibility, we implemented a robust **Primary-to-Backup loading loop**:
+*   **Primary Attempt (MedGemma 1.5 4B)**: The system first tries to allocate resources for the high-fidelity medical model. This model provides the deep clinical reasoning required for complex MRI/CT analysis.
+*   **Automatic Fallback (Gemma 3 2B)**: If the primary load fails—common on devices with less than 16GB of RAM or limited VRAM—the logic catches the error and immediately attempts to initialize the lighter Gemma 3 engine. This ensures the clinician is never left without an active intelligence layer.
+
+### Integrity & Cache Management
+Handling 3GB model files at the edge introduces "stale cache" risks. If a browser attempts to load a partially-downloaded or outdated model file, initialization will fail. Our deployment employs a **Cache-Busting Strategy**, appending a dynamic timestamp query parameter (`?v=${Date.now()}`) to the model asset path. This forces the browser to verify the file's integrity and ensures that the clinical engine is always synchronized with the correct `.litertlm` artifact.
+
+### Multimodal Inference Pipeline
+The inference process is not just a text loop; it is a coordinated orchestration of vision and language:
+*   **Image Ingestion**: Medical scans are loaded into browser memory as `HTMLImageElement` objects.
+*   **Part-Based Payload**: We construct a multimodal payload consisting of the image source followed by a structured text prompt.
+*   **Smart Streaming**: To provide a fluid "typing" experience, the `generateResponse` method uses a callback that implements a **Smart Accumulator**. This logic detects whether the backend is sending cumulative strings or incremental tokens, ensuring that the response flows smoothly without flickering, repeating, or vanishing.
+
+### Secure Execution Environment
+To enable the advanced memory features (like `SharedArrayBuffer`) required for GPU-accelerated inference, the deployment requires a "Secure Context." This is enforced via mandatory HTTP security headers:
+*   **COOP (Cross-Origin Opener Policy)**: `same-origin`
+*   **COEP (Cross-Origin Embedder Policy)**: `require-corp`
+
+This architecture allows expert-level medical AI to run with 100% privacy, utilizing the power already sitting on the clinician's desk.
+
+## 6. Conclusion
+
+The convergence of MedGemma 1.5 4B and LiteRT represents a turning point for medical AI accessibility. By bringing expert-level multimodal intelligence directly into the browser, we are moving toward a future where clinicians have powerful, private, and always-available assistants at their fingertips.
+
+As the community continues to refine these on-device models, the boundary between "cloud-scale" and "edge-capable" intelligence will only continue to blur, making healthcare smarter and safer for everyone.
 
 ---
-
-## 4. Understanding the Output
-
-After a successful conversion, our `out/medgemma-1.5-4b-it-litertlm/` directory will contain several key artifacts:
-
-*   **`model.litertlm`**: The primary bundle for LiteRT GenAI. This is a single-file container for the graphs and metadata.
-*   **`model.tflite`**: The main LLM (text) TFLite graph.
-*   **`embedder.tflite`**: The token embedding TFLite graph.
-*   **`vision_encoder.tflite`**: The specialized vision encoder for processing medical images.
-*   **`tokenizer.json`**: The model's tokenizer configuration.
-
----
-
-## 5. Model Deployment on Edge Devices
-
-*To be confirmed*
-
----
-
-## Conclusion
-
-Converting MedGemma 1.5 4B to LiteRT is a powerful step toward bringing expert-level medical AI to the edge. By utilizing `litert_torch` and domain-specific models like MedGemma, developers can build responsive, private, and capable healthcare applications that work anywhere.
-
-For more details on custom configurations and multimodal tasks, check out the [LiteRT documentation](https://ai.google.dev/edge/litert).
+*The litertlm model can be found at [Hugging Face](https://huggingface.co/ai4med-id/medgemma-1.5-4b-it-litertlm).*
+*The source code for this project is available on [GitHub](https://github.com/AI4MedResearch/edge-ai).*

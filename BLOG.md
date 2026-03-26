@@ -75,6 +75,9 @@ The deployment begins with an environmental handshake. Before attempting to load
 ### Dynamic Runtime Resolution (WASM)
 Once hardware is confirmed, the application initializes the **LiteRT GenAI runtime**. Instead of shipping massive binary loaders with the app, we utilize the `FilesetResolver` to pull specialized WebAssembly (WASM) runtimes (like `genai_wasm_internal.js`) from a high-performance CDN. This ensures the edge engine is always running the latest version compatible with the MedGemma 1.5 bundle format.
 
+### Local Asset Setup
+For the chat UI prototype to function correctly, the `.litertlm` model files must be hosted locally within the application's structure. Specifically, the model bundle should be located at the `public/models` directory. This allows the LiteRT GenAI runtime to fetch the multi-gigabyte binary artifacts directly from the same origin, bypassing complex cross-origin resource sharing (CORS) issues while maintaining high-speed local data transfer.
+
 ### The Two-Stage Fallback Strategy
 To maximize clinical accessibility, we implemented a robust **Primary-to-Backup loading loop**:
 *   **Primary Attempt (MedGemma 1.5 4B)**: The system first tries to allocate resources for the high-fidelity medical model. This model provides the deep clinical reasoning required for complex MRI/CT analysis.

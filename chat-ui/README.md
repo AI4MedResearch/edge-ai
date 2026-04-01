@@ -7,6 +7,13 @@ Currently, two official plugins are available:
 - [@vitejs/plugin-react](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react) uses [Oxc](https://oxc.rs)
 - [@vitejs/plugin-react-swc](https://github.com/vitejs/vite-plugin-react/blob/main/packages/plugin-react-swc) uses [SWC](https://swc.rs/)
 
+## Model Setup
+
+This repository requires the MedGemma LiteRT model to function. Please download the model from Hugging Face and place it in the `public/models/` directory:
+
+- **Model Source:** [ai4med-id/medgemma-1.5-4b-it-litertlm](https://huggingface.co/ai4med-id/medgemma-1.5-4b-it-litertlm)
+- **Expected Filename:** `litertlm_medgemma-1.5-4b-it-fp8.litertlm`
+
 ## React Compiler
 
 The React Compiler is not enabled on this template because of its impact on dev & build performances. To add it, see [this documentation](https://react.dev/learn/react-compiler/installation).

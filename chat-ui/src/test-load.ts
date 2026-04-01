@@ -4,7 +4,7 @@ async function testLoad() {
   try {
     console.log('Testing LiteRT.js load...');
     await loadLiteRt('https://cdn.jsdelivr.net/npm/@litertjs/core/wasm/');
-    const model = await loadAndCompile('/models/model.litertlm', {
+    const model = await loadAndCompile('/models/litertlm_medgemma-1.5-4b-it-fp8.litertlm', {
       accelerator: 'webgpu',
     });
     console.log('Model loaded successfully!', model);

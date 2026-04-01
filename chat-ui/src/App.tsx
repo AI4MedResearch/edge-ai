@@ -15,7 +15,7 @@ const MODEL_CONFIGS = {
   MEDGEMMA_1_5: {
     id: 'medgemma-1.5-4b',
     displayName: 'MedGemma 1.5 Edge',
-    path: '/models/model.litertlm',
+    path: '/models/litertlm_medgemma-1.5-4b-it-fp8.litertlm',
     maxTokens: 2048,
     maxNumImages: 1,
     temperature: 0.7,
@@ -301,7 +301,7 @@ function App() {
               <div className="mt-4 text-sm opacity-80 space-y-2">
                 <p>• Ensure you have at least 16GB of RAM available (MedGemma 4B is larger).</p>
                 <p>• Verify that WebGPU is enabled in browser flags if using an older version.</p>
-                <p>• Make sure the MedGemma model bundle is present in <code>public/models/model.litertlm</code>.</p>
+                <p>• Make sure the MedGemma model bundle is present in <code>public/models/litertlm_medgemma-1.5-4b-it-fp8.litertlm</code>.</p>
               </div>
               <button 
                 onClick={initModel}

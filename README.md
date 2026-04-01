@@ -28,7 +28,7 @@ npm install
 npm run dev
 ```
 
-**Note**: You will need to place your converted `litertlm_medgemma-1.5-4b-it-int4.litertlm` file in `chat-ui/public/models/litertlm_medgemma-1.5-4b-it-int4.litertlm` (or use the provided symlink setup). This repository should use the litertlm model from [https://huggingface.co/ai4med-id/medgemma-1.5-4b-it-litertlm](https://huggingface.co/ai4med-id/medgemma-1.5-4b-it-litertlm).
+**Note**: You will need to place your converted `litertlm_medgemma-1.5-4b-it-fp8.litertlm` file in `chat-ui/public/models/litertlm_medgemma-1.5-4b-it-fp8.litertlm` (or use the provided symlink setup). This repository should use the litertlm model from [https://huggingface.co/ai4med-id/medgemma-1.5-4b-it-litertlm](https://huggingface.co/ai4med-id/medgemma-1.5-4b-it-litertlm).
 
 ### 2. Model Conversion (`medgemma_litert`)
 

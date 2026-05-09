@@ -19,18 +19,20 @@ if (typeof Blob !== 'undefined' && !Blob.prototype.arrayBuffer) {
   };
 }
 
-global.URL.createObjectURL = vi.fn().mockReturnValue('mock-url');
-global.URL.revokeObjectURL = vi.fn();
+globalThis.URL.createObjectURL = vi.fn().mockReturnValue('mock-url');
+globalThis.URL.revokeObjectURL = vi.fn();
 
 // Mock Image
-global.Image = class {
+class MockImage {
   onload: () => void = () => {};
   onerror: () => void = () => {};
   src: string = '';
   constructor() {
     setTimeout(() => this.onload(), 0);
   }
-} as any;
+}
+
+globalThis.Image = MockImage as unknown as typeof Image;
 
 // Mock @mediapipe/tasks-genai
 const mockGenerateResponse = vi.fn();
@@ -42,7 +44,7 @@ vi.mock('@mediapipe/tasks-genai', () => ({
   },
   LlmInference: {
     createFromOptions: vi.fn().mockImplementation(() => Promise.resolve({
-      generateResponse: (prompt: any, listener?: any) => {
+    generateResponse: (prompt: string | Array<{ imageSource: HTMLImageElement } | string>, listener?: (partial: string, done: boolean) => void) => {
         if (listener) {
           // Simulate cumulative streaming (Web SDK behavior)
           listener('Part 1 ', false);
@@ -63,7 +65,7 @@ describe('App Component', () => {
     vi.spyOn(console, 'error').mockImplementation(() => {});
     
     // Mock fetch for model loading with reader support
-    global.fetch = vi.fn().mockResolvedValue({
+    globalThis.fetch = vi.fn().mockResolvedValue({
       ok: true,
       headers: new Headers({ 'content-length': '100' }),
       body: {

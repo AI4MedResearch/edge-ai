@@ -14,3 +14,9 @@
 # Large bundles/models
 *.litertlm
 *.tflite
+*.task
+**/public/models/
+**/medgemma_litert/models/
+
+# Superpowers worktrees
+.worktrees/

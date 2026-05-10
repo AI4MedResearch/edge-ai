@@ -1,13 +1,14 @@
 import { defineConfig, type Plugin } from 'vite'
 import react from '@vitejs/plugin-react'
 import tailwindcss from '@tailwindcss/vite'
-import { cpSync, mkdirSync, readdirSync, statSync } from 'node:fs'
+import { cpSync, mkdirSync, readdirSync, readFileSync, statSync } from 'node:fs'
 import { join, relative } from 'node:path'
 
 function copyPublicWithoutLargeModels() {
   const publicDir = join(import.meta.dirname, 'public')
   const distDir = join(import.meta.dirname, 'dist')
   const excluded = new Set([
+    'dataset',
     'models/litertlm_medgemma-1.5-4b-it-int4.litertlm',
     'models/gemma-4-E2B-it.litertlm',
     'models/gemma-3n-E2B-it-int4-Web.litertlm',
@@ -38,11 +39,21 @@ function copyPublicWithoutLargeModels() {
 const stripSourceMapPlugin = (): Plugin => ({
   name: 'strip-mediapipe-sourcemap',
   enforce: 'pre',
+  load(id) {
+    if (id.includes('@mediapipe/tasks-genai/genai_bundle.mjs') || id.includes('@mediapipe/tasks-genai/genai_bundle.cjs')) {
+      const cleanId = id.split('?')[0]
+      const code = readFileSync(cleanId, 'utf8')
+      return {
+        code: code.replace(/\/\/# sourceMappingURL=.*/g, ''),
+        map: null,
+      }
+    }
+  },
   transform(code, id) {
     if (id.includes('@mediapipe/tasks-genai')) {
       return {
         code: code.replace(/\/\/# sourceMappingURL=.*/g, ''),
-        map: { mappings: '' },
+        map: null,
       }
     }
   },

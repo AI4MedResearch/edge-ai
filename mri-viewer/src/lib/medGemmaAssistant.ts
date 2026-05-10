@@ -26,14 +26,6 @@ const MODEL_CONFIGS = {
     temperature: 0.2,
     topK: 40,
   },
-  gemma4: {
-    displayName: 'Gemma 4 Multimodal',
-    path: '/models/gemma-4-E2B-it.litertlm',
-    maxTokens: 1536,
-    maxNumImages: 1,
-    temperature: 0.2,
-    topK: 40,
-  },
   gemma3Compatibility: {
     displayName: 'Gemma 3 Multimodal',
     path: '/models/gemma-3n-E2B-it-int4-Web.litertlm',
@@ -115,33 +107,21 @@ export class MedGemmaAssistantService {
       return;
     } catch (primaryError) {
       const primaryMessage = formatError(primaryError);
-      console.warn('MedGemma load failed, trying Gemma 4 fallback:', primaryError);
+      console.warn('MedGemma load failed, trying Gemma 3 compatibility fallback:', primaryError);
 
       try {
-        this._modelDetail = `MedGemma load failed (${primaryMessage}). Loading Gemma 4 fallback...`;
-        const fallback = await createLlmInference(this.genai, MODEL_CONFIGS.gemma4);
+        this._modelDetail = `MedGemma load failed (${primaryMessage}). Loading Gemma 3 compatibility fallback...`;
+        const fallback = await createLlmInference(this.genai, MODEL_CONFIGS.gemma3Compatibility);
 
         this.inference = fallback;
-        this._modelName = MODEL_CONFIGS.gemma4.displayName;
-        this._modelDetail = `${MODEL_CONFIGS.gemma4.displayName} is ready. MedGemma was not accepted by this browser runtime: ${primaryMessage}`;
-      } catch (gemma4Error) {
-        const gemma4Message = formatError(gemma4Error);
-        console.warn('Gemma 4 fallback failed, trying Gemma 3 compatibility fallback:', gemma4Error);
-
-        try {
-          this._modelDetail = `Gemma 4 fallback failed (${gemma4Message}). Loading Gemma 3 compatibility fallback...`;
-          const compatibilityFallback = await createLlmInference(this.genai, MODEL_CONFIGS.gemma3Compatibility);
-
-          this.inference = compatibilityFallback;
-          this._modelName = MODEL_CONFIGS.gemma3Compatibility.displayName;
-          this._modelDetail = `${MODEL_CONFIGS.gemma3Compatibility.displayName} is ready. MedGemma failed (${primaryMessage}); Gemma 4 also failed (${gemma4Message}).`;
-        } catch (compatibilityError) {
-          const compatibilityMessage = formatError(compatibilityError);
-          this.inference = null;
-          this._modelName = MODEL_CONFIGS.medgemma.displayName;
-          this._modelDetail = `MedGemma failed (${primaryMessage}). Gemma 4 fallback also failed (${gemma4Message}). Gemma 3 compatibility fallback failed (${compatibilityMessage}).`;
-          throw new Error(this._modelDetail, { cause: compatibilityError });
-        }
+        this._modelName = MODEL_CONFIGS.gemma3Compatibility.displayName;
+        this._modelDetail = `${MODEL_CONFIGS.gemma3Compatibility.displayName} is ready. MedGemma failed (${primaryMessage}).`;
+      } catch (compatibilityError) {
+        const compatibilityMessage = formatError(compatibilityError);
+        this.inference = null;
+        this._modelName = MODEL_CONFIGS.medgemma.displayName;
+        this._modelDetail = `MedGemma failed (${primaryMessage}). Gemma 3 compatibility fallback failed (${compatibilityMessage}).`;
+        throw new Error(this._modelDetail, { cause: compatibilityError });
       }
     }
   }

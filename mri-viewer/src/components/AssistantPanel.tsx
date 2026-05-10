@@ -154,6 +154,35 @@ function mergeReportDraft(previous: ReportDraft, response: string, action?: Quic
   };
 }
 
+function extractVisibleChatText(message: string) {
+  return parseMessageContent(message)
+    .filter((block) => block.type === 'text')
+    .map((block) => block.content)
+    .join('\n')
+    .trim();
+}
+
+function reportFromChatTranscript(previous: ReportDraft, transcript: ChatMessage[]): ReportDraft {
+  const visibleMessages = transcript
+    .map((message) => extractVisibleChatText(message.content))
+    .filter(Boolean);
+
+  const combinedVisibleText = visibleMessages.join('\n\n').trim();
+  const latestVisibleText = visibleMessages.at(-1)?.trim() ?? '';
+
+  const draft = transcript.reduce((currentDraft, message) => {
+    const visibleText = extractVisibleChatText(message.content);
+    if (!visibleText) return currentDraft;
+    return mergeReportDraft(currentDraft, visibleText);
+  }, previous);
+
+  return {
+    ...draft,
+    findings: draft.findings || combinedVisibleText,
+    impression: draft.impression || latestVisibleText || combinedVisibleText,
+  };
+}
+
 function reportToText(report: ReportDraft) {
   return [
     `Clinical context\n${report.clinicalContext || '[Not provided]'}`,
@@ -339,6 +368,15 @@ Caveats/needs review`;
     void navigator.clipboard.writeText(reportToText(reportDraft));
   };
 
+  const assistantTranscript = messages.filter((message) => message.role === 'assistant');
+
+  const openReportViewFromChat = () => {
+    if (assistantTranscript.length > 0) {
+      setReportDraft(reportFromChatTranscript(EMPTY_REPORT, assistantTranscript));
+    }
+    setPanelView('report');
+  };
+
   return (
     <aside className="flex h-full w-[480px] shrink-0 flex-col border-l border-neutral-700 bg-neutral-900 text-neutral-100 shadow-2xl xl:w-[520px]">
       <div className="border-b border-neutral-700 px-4 py-3">
@@ -386,7 +424,7 @@ Caveats/needs review`;
             Chat
           </button>
           <button
-            onClick={() => setPanelView('report')}
+            onClick={openReportViewFromChat}
             className={`h-8 rounded-full px-3 text-[11px] font-semibold uppercase tracking-wider transition ${
               panelView === 'report'
                 ? 'bg-cyan-500 text-white shadow'

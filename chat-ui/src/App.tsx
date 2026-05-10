@@ -50,13 +50,14 @@ function App() {
   const messagesEndRef = useRef<HTMLDivElement>(null);
   const llmInferenceRef = useRef<LlmInference | null>(null);
   const fileInputRef = useRef<HTMLInputElement>(null);
+  const hasWebGpu = 'gpu' in navigator;
 
   const initModel = useCallback(async () => {
     setIsModelLoading(true);
     setModelError(null);
     
     try {
-      if (!navigator.gpu) {
+      if (!hasWebGpu) {
         throw new Error('WebGPU is not supported in this browser. Please use Chrome/Edge with WebGPU enabled.');
       }
       
@@ -115,7 +116,7 @@ function App() {
       setModelError(err instanceof Error ? err.message : String(err));
       setIsModelLoading(false);
     }
-  }, []);
+  }, [hasWebGpu]);
 
   useEffect(() => {
     initModel();
@@ -208,7 +209,7 @@ function App() {
       const turnPrompt = buildTurnPrompt(userMessage, isFirstTurn);
       let accumulated = '';
       
-      const streamingListener = (partial: string, _done: boolean) => {
+      const streamingListener = (partial: string) => {
         // Smart accumulator: handle both delta and cumulative inputs
         if (accumulated && partial.startsWith(accumulated)) {
           accumulated = partial; // Cumulative

@@ -55,6 +55,21 @@ Expected output:
 
 - `out/medgemma-1.5-4b-it-litertlm/model.litertlm`
 
+## 5b) Run Web conversion (.task)
+
+For on-device browser deployment using the MediaPipe GenAI Web API, you can generate a `.task` bundle:
+
+```bash
+cd medgemma_litert
+chmod +x convert_web_int4_task.sh
+./convert_web_int4_task.sh
+```
+
+Expected output:
+- `out/medgemma-1.5-4b-it-int4-task/medgemma.task`
+
+This script uses the `mediapipe.tasks.python.genai.converter` to produce a bundle optimized for WebGPU (INT4).
+
 ## Useful flags
 
 - `--enable_dynamic_shape`

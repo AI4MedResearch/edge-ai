@@ -20,7 +20,7 @@ type ModelConfig = {
 const MODEL_CONFIGS = {
   medgemma: {
     displayName: 'MedGemma 1.5 Edge',
-    path: '/models/litertlm_medgemma-1.5-4b-it-int4.litertlm',
+    path: '/models/medgemma-1.5-4b-it-int4.task',
     maxTokens: 1536,
     maxNumImages: 1,
     temperature: 0.2,

@@ -195,6 +195,29 @@ def parse_args() -> argparse.Namespace:
       action="store_true",
       help="Validate parameters and print config without executing the export.",
   )
+  parser.add_argument(
+      "--no_bundle",
+      action="store_true",
+      help="If true, generates raw .tflite files instead of a .litertlm bundle.",
+  )
+  parser.add_argument(
+      "--externalize_embedder",
+      action="store_true",
+      default=True,
+      help="Whether to externalize the embedder model.",
+  )
+  parser.add_argument(
+      "--no_externalize_embedder",
+      action="store_false",
+      dest="externalize_embedder",
+      help="Disable externalizing the embedder model.",
+  )
+  parser.add_argument(
+      "--externalize_rope",
+      action="store_true",
+      default=False,
+      help="Whether to externalize the RoPE embeddings.",
+  )
   return parser.parse_args()
 
 
@@ -228,6 +251,7 @@ def main() -> int:
 
   # 6. Define the full export configuration
   # The 'image_text_to_text' task is essential for MedGemma's multimodal nature.
+  bundle_litert_lm = not args.no_bundle
   config_preview = {
       "model": args.model,
       "output_dir": str(output_dir),
@@ -238,8 +262,10 @@ def main() -> int:
       "vision_encoder_quantization_recipe": args.vision_quantization_recipe,
       "enable_dynamic_shape": args.enable_dynamic_shape,
       "trust_remote_code": args.trust_remote_code,
-      "bundle_litert_lm": True, # Creates the final .litertlm container
+      "bundle_litert_lm": bundle_litert_lm, # Creates the final .litertlm container
       "export_vision_encoder": True,
+      "externalize_embedder": args.externalize_embedder,
+      "externalize_rope": args.externalize_rope,
       "experimental_lightweight_conversion": (
           args.experimental_lightweight_conversion
       ),
@@ -267,13 +293,14 @@ def main() -> int:
       "cache_length": args.cache_length,
       "quantization_recipe": args.quantization_recipe,
       "enable_dynamic_shape": args.enable_dynamic_shape,
+      "bundle_litert_lm": bundle_litert_lm,
+      "externalize_embedder": args.externalize_embedder,
+      "externalize_rope": args.externalize_rope,
   }
 
   # Map internal config to library-specific argument names
   if "task" in params:
     export_kwargs["task"] = "image_text_to_text"
-  if "bundle_litert_lm" in params:
-    export_kwargs["bundle_litert_lm"] = True
   if "export_vision_encoder" in params:
     export_kwargs["export_vision_encoder"] = True
   if "vision_encoder_quantization_recipe" in params:

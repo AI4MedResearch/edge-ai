@@ -1,0 +1,15 @@
+{
+  "bos_token": "<bos>",
+  "eos_token": "<eos>",
+  "unk_token": "<unk>",
+  "pad_token": "<pad>",
+  "boi_token": "<boi>",
+  "eoi_token": "<eoi>",
+  "additional_special_tokens": [
+    "<start_of_turn>",
+    "<end_of_turn>",
+    "<image>",
+    "<boi>",
+    "<eoi>"
+  ]
+}
